@@ -29,11 +29,13 @@ let irohNative: Target = .systemLibrary(
     name: "Iroh",
     path: "IrohLinux",
     pkgConfig: "iroh")
+let irohProductTargets = ["IrohLib"]
 #else
 let irohNative: Target = .binaryTarget(
     name: "Iroh",
     url: "https://github.com/n0-computer/iroh-ffi/releases/download/\(releaseTag)/IrohLib.xcframework.zip",
     checksum: releaseChecksum)
+let irohProductTargets = ["IrohLib", "Iroh"]
 #endif
 
 let package = Package(
@@ -46,7 +48,7 @@ let package = Package(
     products: [
         .library(
             name: "IrohLib",
-            targets: ["IrohLib", "Iroh"]),
+            targets: irohProductTargets),
     ],
     dependencies: [],
     targets: [
