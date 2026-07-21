@@ -194,12 +194,18 @@ extension FfiConverterRustBuffer {
     @_documentation(visibility: private)
 #endif
     public static func lift(_ buf: RustBuffer) throws -> SwiftType {
-        var reader = createReader(data: Data(rustBuffer: buf))
+        let ownedData: Data
+        if let pointer = buf.data {
+            ownedData = Data(bytes: pointer, count: Int(buf.len))
+        } else {
+            ownedData = Data()
+        }
+        buf.deallocate()
+        var reader = createReader(data: ownedData)
         let value = try read(from: &reader)
         if hasRemaining(reader) {
             throw UniffiInternalError.incompleteData
         }
-        buf.deallocate()
         return value
     }
 
