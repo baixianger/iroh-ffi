@@ -31,8 +31,7 @@ let packageDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 let localBuiltBinary = packageDir
     .appendingPathComponent("Iroh.xcframework/macos-arm64/libiroh_ffi.a")
 let forceRemote = ProcessInfo.processInfo.environment["IROH_FORCE_REMOTE_XCFRAMEWORK"] != nil
-let useLocalXcframework = !forceRemote
-    && FileManager.default.fileExists(atPath: localBuiltBinary.path)
+let useLocalXcframework = false
 
 let irohBinary: Target = useLocalXcframework
     ? .binaryTarget(
