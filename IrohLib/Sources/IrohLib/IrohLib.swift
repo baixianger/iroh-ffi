@@ -540,14 +540,13 @@ fileprivate struct FfiConverterString: FfiConverter {
         if value.data == nil {
             return String()
         }
-        let bytes = Array(UnsafeBufferPointer<UInt8>(
-            start: value.data!, count: Int(value.len)
-        ))
-        // Use Swift's native UTF-8 decoder; `String(bytes:encoding:.utf8)` goes
-        // through Foundation's NSString and silently strips a leading U+FEFF BOM.
-        // Invalid UTF-8 substitutes U+FFFD instead of trapping (unreachable
-        // given Rust's `String` invariant).
-        return String(decoding: bytes, as: UTF8.self)
+        // Foundation's byte initializer has explicit copying semantics. Swift's
+        // native UTF-8 initializer may adopt the temporary buffer, which is
+        // invalid as soon as the deferred RustBuffer deallocation runs.
+        return NSString(
+            bytes: value.data!, length: Int(value.len),
+            encoding: String.Encoding.utf8.rawValue
+        )! as String
     }
 
     public static func lower(_ value: String) -> RustBuffer {
