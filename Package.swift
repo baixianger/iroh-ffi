@@ -12,12 +12,9 @@ import Foundation
 //   * otherwise (git-URL / Swift Package Index consumers): the pinned,
 //     prebuilt xcframework zip attached to a GitHub release.
 //
-// Presence is keyed on the macOS slice's static lib. The whole xcframework
-// directory is gitignored (build artifact only — Apple regenerates it from
-// the cargo-built .a files via `xcodebuild -create-xcframework -library`),
-// so a fresh consumer checkout has nothing local to find and falls through
-// to the release zip. Set IROH_FORCE_REMOTE_XCFRAMEWORK to force the release
-// zip even in a built checkout.
+// Apple consumers use the signed release XCFramework. Linux consumers build
+// the same Rust crate as libiroh_ffi and expose it through pkg-config; the
+// checked-in UniFFI header keeps the generated Swift API identical.
 //
 // `releaseTag` is rewritten locally by `cargo make prepare-release <V>`.
 // `releaseChecksum` is rewritten on PR CI by `release_swift.yml` (one bot
@@ -27,20 +24,17 @@ import Foundation
 let releaseTag = "v1.1.0"
 let releaseChecksum = "ad46dadf09f9224157512992923562931ed60f252414230d50893a4d515c5776"
 
-let packageDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-let localBuiltBinary = packageDir
-    .appendingPathComponent("Iroh.xcframework/macos-arm64/libiroh_ffi.a")
-let forceRemote = ProcessInfo.processInfo.environment["IROH_FORCE_REMOTE_XCFRAMEWORK"] != nil
-let useLocalXcframework = false
-
-let irohBinary: Target = useLocalXcframework
-    ? .binaryTarget(
-        name: "Iroh",
-        path: "Iroh.xcframework")
-    : .binaryTarget(
-        name: "Iroh",
-        url: "https://github.com/n0-computer/iroh-ffi/releases/download/\(releaseTag)/IrohLib.xcframework.zip",
-        checksum: releaseChecksum)
+#if os(Linux)
+let irohNative: Target = .systemLibrary(
+    name: "Iroh",
+    path: "IrohLinux",
+    pkgConfig: "iroh")
+#else
+let irohNative: Target = .binaryTarget(
+    name: "Iroh",
+    url: "https://github.com/n0-computer/iroh-ffi/releases/download/\(releaseTag)/IrohLib.xcframework.zip",
+    checksum: releaseChecksum)
+#endif
 
 let package = Package(
     name: "IrohLib",
@@ -63,14 +57,18 @@ let package = Package(
             ],
             path: "IrohLib/Sources/IrohLib",
             linkerSettings: [
-              .linkedFramework("SystemConfiguration"),
+              .linkedFramework(
+                "SystemConfiguration",
+                .when(platforms: [.macOS, .iOS, .macCatalyst])),
               // iroh's netdev uses Network.framework for interface enumeration
               // (the nw_* / nw_path_monitor_* symbols) on Apple platforms.
-              .linkedFramework("Network"),
+              .linkedFramework(
+                "Network",
+                .when(platforms: [.macOS, .iOS, .macCatalyst])),
               // iroh's netwatch queries WiFi interfaces via CoreWLAN on macOS.
               .linkedFramework("CoreWLAN", .when(platforms: [.macOS]))
             ]),
-        irohBinary,
+        irohNative,
         .testTarget(
             name: "IrohLibTests",
             dependencies: ["IrohLib"],

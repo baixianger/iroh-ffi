@@ -1,0 +1,5 @@
+module Iroh [system] {
+    header "iroh_ffiFFI.h"
+    link "iroh_ffi"
+    export *
+}
